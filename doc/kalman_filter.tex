@@ -2,7 +2,7 @@
 \usepackage{amsmath}
 
 %opening
-\title{"State Estimation with Kalman Filter"}
+\title{State Estimation with Extended Kalman Filter}
 \author{fjctp (snchan20@yahoo.com)}
 
 \begin{document}
@@ -10,10 +10,10 @@
 \maketitle
 
 \begin{abstract}
-Estimate Euler angles using extended Kalman filter and IMU measurements
+Estimate Euler angles with Extended Kalman filter using measurements from IMU.
 \end{abstract}
 
-\section{Equations}
+\section{Kalmen Filter}
 Kalman filter involves two steps: prediction and update.
 
 \subsection{Prediction}
@@ -55,7 +55,7 @@ x = x' + Ky\label{eqn:updated_states}
 P = (I-KH)P\label{eqn:updated_covariance}
 \end{equation}
 
-\subsection{Extended Kalman Filter}
+\section{Extended Kalman Filter}
 Extended Kalman filter is similar to Kalman filter. However, the nonlinear model is used for prediction and its Jacobian matrix is calculated for $F$ and $H$.
 
 \paragraph*{}
@@ -67,57 +67,57 @@ x' = f(x, u)
 \paragraph*{}
 $F$ and $H$ in Eq \eqref{eqn:predict_covarance}, \eqref{eqn:innovation_covariance}, \eqref{eqn:kalman_gain}, and \eqref{eqn:updated_covariance} becomes Jacobian matrices that are evaluated at $x'$.
 
-\section{Implementation}
+\subsection{Implementation}
 The filter estimates Euler angles using body angular rate ($p, q, r$) and body acceleration ($a_x, a_y, a_z$). This section provides the derivation of the nonlinear model, Jacobian matrix, and initialization of the filter.
 
-\subsection{Model}
+\subsubsection{Model}
 The model is based on kinematic that relates Euler angles, body angular rate, and body acceleration. This section begins with frame rotation, and then the nonlinear kinematic equations. And it will ends with the Jacobian matrices. 
 
-\subsubsection{Frame rotation}
+\paragraph{Frame rotation}
 
 \paragraph*{}
-Rotate acceleration vector from inertia to body frame
+Rotates acceleration vector from inertia to body frame.
 
 \begin{equation}
-\begin{bmatrix}
-\dot{u} \\
-\dot{v}\\
-\dot{w}
-\end{bmatrix} = 
-R_{i}^{b}
-\begin{bmatrix}
-a_x \\
-a_y \\
-a_z
-\end{bmatrix}
+	\begin{bmatrix}
+		\dot{u} \\
+		\dot{v}\\
+		\dot{w}
+	\end{bmatrix} = 
+	R_{i}^{b}
+	\begin{bmatrix}
+		a_x \\
+		a_y \\
+		a_z
+	\end{bmatrix}
 \end{equation}
 
 where 
 
 \begin{equation}
-R_{i}^b = 
-\begin{bmatrix}
-c_\theta c_\psi & c_\theta s_\psi & -s_\theta\\
-(-c_\phi s_\psi + s_\phi s_\theta c_\psi) & (c_\phi c_\psi + s_\phi s_\theta s_\psi) & s_\phi c_\theta\\
-(s_\phi s_\psi + c_\phi s_\theta c_\psi) & (-s_\phi c_\psi + c_\phi s_\theta s_\psi) & c_\phi c_\theta\\
-\end{bmatrix}
+	R_{i}^b = 
+	\begin{bmatrix}
+		c_\theta c_\psi & c_\theta s_\psi & -s_\theta\\
+		(-c_\phi s_\psi + s_\phi s_\theta c_\psi) & (c_\phi c_\psi + s_\phi s_\theta s_\psi) & s_\phi c_\theta\\
+		(s_\phi s_\psi + c_\phi s_\theta c_\psi) & (-s_\phi c_\psi + c_\phi s_\theta s_\psi) & c_\phi c_\theta\\
+	\end{bmatrix}
 \end{equation}
 
 \paragraph*{}
-Rotate body angular rate vector to Euler frame
+Rotates body angular rate vector to Euler frame
 
 \begin{equation}
-\begin{bmatrix}
-\dot{\phi} \\
-\dot{\theta}\\
-\dot{\psi}
-\end{bmatrix} = 
-R_{b}^{e}
-\begin{bmatrix}
-p \\
-q \\
-r
-\end{bmatrix}
+	\begin{bmatrix}
+		\dot{\phi} \\
+		\dot{\theta}\\
+		\dot{\psi}
+	\end{bmatrix} = 
+	R_{b}^{e}
+	\begin{bmatrix}
+		p \\
+		q \\
+		r
+	\end{bmatrix}
 \end{equation}
 
 where 
@@ -131,8 +131,10 @@ R_{b}^e =
 \end{bmatrix}
 \end{equation}
 
-\subsubsection{Kinematic}
-Given the velocity, $v$, of an object over time, the position, $p$, becomes
+\paragraph{Kinematic}
+
+\paragraph*{}
+Given an object's velocity, $v$, over time, we can compute its position, $p$, by
 
 \begin{equation}
 p = \int_0^t v dt
@@ -147,7 +149,7 @@ p' = p + v \Delta T
 where $\Delta T$ is the time step.
 
 
-\paragraph*{Discrete-time model}
+\subparagraph*{Discrete-time model}
 By combining the equations above, the equations become:
 
 \begin{equation}
@@ -170,7 +172,7 @@ By combining the equations above, the equations become:
 	\end{bmatrix}
 \end{equation}
 
-\paragraph{Accelerometer Measurement}
+\subparagraph{Accelerometer Measurement}
 Express measure in terms of filter's states
 
 \begin{equation}
