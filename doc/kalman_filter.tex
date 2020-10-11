@@ -56,7 +56,7 @@ P = (I-KH)P\label{eqn:updated_covariance}
 \end{equation}
 
 \subsection{Extended Kalman Filter}
-Extended Kalman filter is similar to Kalman filter, but the model ($x' = Fx + u$) becomes $x' = f(x,u)$ (a nonlinear function), and the measurement matrix ($H$) becomes $h(x)$.
+Extended Kalman filter is similar to Kalman filter, but the linear model (Eq. \ref{eqn:model}), becomes a nonlinear function ($x' = f(x,u)$), and the measurement matrix ($H$) becomes $h(x)$.
 
 \paragraph*{}
 Eq \eqref{eqn:model} becomes
@@ -198,6 +198,10 @@ where $g$ is gravitational acceleration
 
 \begin{equation}
 Fj = I_{3x3}
+\end{equation}
+
+\begin{equation}
+Bj = R^e_b|_{phi, theta, psi} \Delta T
 \end{equation}
 
 \begin{equation}
