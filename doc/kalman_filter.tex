@@ -56,7 +56,7 @@ P = (I-KH)P\label{eqn:updated_covariance}
 \end{equation}
 
 \subsection{Extended Kalman Filter}
-Extended Kalman filter is similar to Kalman filter, but the linear model (Eq. \ref{eqn:model}), becomes a nonlinear function ($x' = f(x,u)$), and the measurement matrix ($H$) becomes $h(x)$.
+Extended Kalman filter is similar to Kalman filter. However, the nonlinear model is used for prediction and its Jacobian matrix is calculated for $F$ and $H$.
 
 \paragraph*{}
 Eq \eqref{eqn:model} becomes
@@ -151,72 +151,127 @@ where $\Delta T$ is the time step.
 By combining the equations above, the equations become:
 
 \begin{equation}
-\begin{bmatrix}
-\phi' \\
-\theta' \\
-\psi'
-\end{bmatrix} = I_{3x3} 
-\begin{bmatrix}
-\phi \\
-\theta \\
-\psi
-\end{bmatrix} + 
-R_b^e(\phi, \theta, \psi)
-\begin{bmatrix}
-p \\
-q \\
-r
-\end{bmatrix}
-\Delta T
+	\begin{bmatrix}
+		\phi' \\
+		\theta' \\
+		\psi'
+	\end{bmatrix} = I_{3x3} 
+	\begin{bmatrix}
+		\phi \\
+		\theta \\
+		\psi
+	\end{bmatrix} + 
+	R_b^e(\phi, \theta, \psi)
+	\Delta T
+	\begin{bmatrix}
+		p \\
+		q \\
+		r
+	\end{bmatrix}
 \end{equation}
 
 \paragraph{Accelerometer Measurement}
 Express measure in terms of filter's states
 
 \begin{equation}
-\begin{bmatrix}
-\dot{u} \\
-\dot{v} \\
-\dot{w} \\
-\end{bmatrix} = 
-R_{i}^{b}(\phi, \theta, \psi)
-\begin{bmatrix}
-0 \\
-0 \\
-g
-\end{bmatrix} = g
-\begin{bmatrix}
--s_\theta \\
-s_\phi c_\theta \\
-c_\phi c_\theta
-\end{bmatrix}\label{eqn:accelerometer_measurement_equation}
+	\begin{bmatrix}
+		\dot{u} \\
+		\dot{v} \\
+		\dot{w} \\
+	\end{bmatrix} = 
+	R_{i}^{b}(\phi, \theta, \psi)
+	\begin{bmatrix}
+		0 \\
+		0 \\
+		g
+	\end{bmatrix} = g
+	\begin{bmatrix}
+		-s_\theta \\
+		s_\phi c_\theta \\
+		c_\phi c_\theta
+	\end{bmatrix}\label{eqn:accelerometer_measurement_equation}
 \end{equation}
 
 where $g$ is gravitational acceleration
 
-\subsubsection{Jacobian Matrix}
+\subsection{Summary}
+
+We want to estimate Euler angles, $\phi$, $\theta$, and $\psi$ using Extended Kalman filter. $u$ is body angular rate, $p$, $q$, and $r$. $x$ is Euler angles, $\phi$, $\theta$, and $\psi$. $z$ is body acceleration.
+
+\paragraph*{Prediction}
 
 \begin{equation}
-Fj = I_{3x3}
+	\begin{bmatrix}
+		\phi' \\
+		\theta' \\
+		\psi'
+	\end{bmatrix} = I_{3x3} 
+	\begin{bmatrix}
+		\phi \\
+		\theta \\
+		\psi
+	\end{bmatrix} + 
+	R_b^e(\phi, \theta, \psi)
+	\Delta T
+	\begin{bmatrix}
+		p \\
+		q \\
+		r
+	\end{bmatrix}
+\end{equation}
+
+where $\Delta T$ is sample time.
+
+\begin{equation}
+	P = F_j P F_j^T + Q\label{eqn:predict_covarance}
+\end{equation}
+
+where $F_j = I_{3x3}$
+
+
+\paragraph*{Update}
+
+
+\begin{equation}
+	z_{est} = H_j x'\label{eqn:predict_measurement}
+\end{equation}
+
+where measurement matrix, $H_j$, is a Jacobian matrix.
+
+\begin{equation}
+	H_j = 
+	\begin{bmatrix}
+		\frac{\partial \dot{u}}{\partial \phi} && \frac{\partial \dot{u}}{\partial \theta} && \frac{\partial \dot{u}}{\partial \psi} \\
+		\frac{\partial \dot{v}}{\partial \phi} && \frac{\partial \dot{v}}{\partial \theta} && \frac{\partial \dot{v}}{\partial \psi} \\
+		\frac{\partial \dot{w}}{\partial \phi} && \frac{\partial \dot{w}}{\partial \theta} && \frac{\partial \dot{w}}{\partial \psi}
+	\end{bmatrix} = g
+	\begin{bmatrix}
+		0 && -c_{\theta} && 0 \\
+		c_{\phi}c_{\theta} && -s_{\phi}s_{\theta} && 0 \\
+		-s_{\phi}c_{\theta} && -c_{\phi}s_{\theta} && 0 \\
+	\end{bmatrix}
 \end{equation}
 
 \begin{equation}
-Bj = R^e_b|_{phi, theta, psi} \Delta T
+	y = z - z_{est}\label{eqn:measurement_difference}
 \end{equation}
 
 \begin{equation}
-Hj_{accel} = 
-\begin{bmatrix}
-\frac{\partial \dot{u}}{\partial \phi} && \frac{\partial \dot{u}}{\partial \theta} && \frac{\partial \dot{u}}{\partial \psi} \\
-\frac{\partial \dot{v}}{\partial \phi} && \frac{\partial \dot{v}}{\partial \theta} && \frac{\partial \dot{v}}{\partial \psi} \\
-\frac{\partial \dot{w}}{\partial \phi} && \frac{\partial \dot{w}}{\partial \theta} && \frac{\partial \dot{w}}{\partial \psi}
-\end{bmatrix} = g
-\begin{bmatrix}
-0 && -c_{\theta} && 0 \\
-c_{\phi}c_{\theta} && -s_{\phi}s_{\theta} && 0 \\
--s_{\phi}c_{\theta} && -c_{\phi}s_{\theta} && 0 \\
-\end{bmatrix}
+	S = H_j P H_j^T + R\label{eqn:innovation_covariance}
 \end{equation}
+
+\begin{equation}
+	K = P H_j^T S^{-1}\label{eqn:kalman_gain}
+\end{equation}
+
+\begin{equation}
+	x = x' + Ky\label{eqn:updated_states}
+\end{equation}
+
+\begin{equation}
+	P = (I-KH)P\label{eqn:updated_covariance}
+\end{equation}
+
 
 \subsection{Initialization}
 Initialize filter's states, $\phi, \theta, \psi$ using accelerometer measurement, which is body acceleration, $a_{bx}, a_{by}, a_{bz}$.
