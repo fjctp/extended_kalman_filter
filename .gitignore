@@ -4,3 +4,4 @@ doc/*
 slprj/
 *.slxc
 *.asv
+*.autosave
