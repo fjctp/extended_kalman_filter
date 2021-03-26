@@ -10,26 +10,27 @@
 \maketitle
 
 \begin{abstract}
-Estimate Euler angles with Extended Kalman filter using measurements from IMU.
+Estimate Euler angles using extended kalman filter and measurements from IMU (incl. rate gyro, accelometer, and magnetometer).
 \end{abstract}
 
 \section{Kalmen Filter}
-Kalman filter involves two steps: prediction and update.
+Kalman filter, also known as linear quadratic estimation (LQE), uses a series of measurements (with noise) over time and a  mathematical model to estimate unmeasurable variables. The filter involves two steps: predict the unknown variables using a model then update the estimates using measurements.
 
 \subsection{Prediction}
-Predict states ($x$) using \textbf{discrete-time model} and update covariance ($P$). Note that, $Q$ is process covariance ($\sigma^2$). In other word, how good is the model. 
+Use \textbf{discrete-time model} to predict unknown variables ($x$), also known as states, and update the covariance ($P$) of the estimation.
 
 \begin{equation}
 x' = Fx + Bu\label{eqn:model}
 \end{equation}
 
-
 \begin{equation}
 P = FPF^T + Q\label{eqn:predict_covarance}
 \end{equation}
 
+Note that, $Q$ is process covariance ($\sigma^2$). In other word, how good is the model. 
+
 \subsection{Update}
-Update states ($x$) and covariance ($P$) based on predicted state ($x'$), sensor measurements ($z$), and measurement matrix ($H$). Note that, $R$ is measurement covariance ($\sigma^2$), which is provided by sensor manufacturer or by experiment.
+Use sensor measurements ($z$) to update states ($x$) and covariance ($P$). 
 
 \begin{equation}
 z_{est} = Hx'\label{eqn:predict_measurement}
@@ -55,28 +56,155 @@ x = x' + Ky\label{eqn:updated_states}
 P = (I-KH)P\label{eqn:updated_covariance}
 \end{equation}
 
-\section{Extended Kalman Filter}
-Extended Kalman filter is similar to Kalman filter. However, the nonlinear model is used for prediction and its Jacobian matrix is calculated for $F$ and $H$.
+Note that, $R$ is measurement covariance ($\sigma^2$), which is provided by sensor manufacturer or by experiment.
+
+\subsection{Extended Kalman Filter}
+Extended Kalman filter is an extention on Kalman filter, where nonlinear model is used for prediction and update. 
 
 \paragraph*{}
 Eq \eqref{eqn:model} becomes
 \begin{equation}
-x' = f(x, u)
+	x' = f(x, u) \label{eqn:model_nonlinear}
+\end{equation}
+
+\paragraph*{}
+Eq \eqref{eqn:predict_measurement} becomes
+\begin{equation}
+	z_{est} = h(x') \label{eqn:predict_measurement_nonlinear}
 \end{equation}
 
 \paragraph*{}
 $F$ and $H$ in Eq \eqref{eqn:predict_covarance}, \eqref{eqn:innovation_covariance}, \eqref{eqn:kalman_gain}, and \eqref{eqn:updated_covariance} becomes Jacobian matrices that are evaluated at $x'$.
 
-\subsection{Implementation}
-The filter estimates Euler angles using body angular rate ($p, q, r$) and body acceleration ($a_x, a_y, a_z$). This section provides the derivation of the nonlinear model, Jacobian matrix, and initialization of the filter.
+\section{Estimate Euler angles}
+Using extended kalman filter to estimate Euler angles using body angular rate ($p, q, r$), body acceleration ($a_x, a_y, a_z$), and body magnetic forces ($m_x, m_y, m_z$). This section  starts with the derivation of the nonlinear model using Kinematic, then it will compute the Jacobian matrics. At the end, it will talk about initialization of the filter and picking $Q$ and $R$.
 
-\subsubsection{Model}
+\subsection{Model}
 The model is based on kinematic that relates Euler angles, body angular rate, and body acceleration. This section begins with frame rotation, and then the nonlinear kinematic equations. And it will ends with the Jacobian matrices. 
 
-\paragraph{Frame rotation}
+\subsubsection{Kinematic}
+
+\paragraph*{Position}
+Given an object's velocity over time, $v$, we can compute its position, $p$, by integration.
+
+\begin{equation}
+	p = \int_0^t v dt
+\end{equation}
+
+In discrete-time, it can be written as
+
+\begin{equation}
+	p' = p + v \Delta T
+\end{equation}
+
+where $\Delta T$ is the time step in second.
+
+
+\paragraph*{Euler angles}
+By integrating angular rate in Euler frame, we will get Euler angles.
+
+\begin{equation}
+	\begin{bmatrix}
+		\phi' \\
+		\theta' \\
+		\psi'
+	\end{bmatrix} = I_{3x3} 
+	\begin{bmatrix}
+		\phi \\
+		\theta \\
+		\psi
+	\end{bmatrix} + 
+	R_b^e(\phi, \theta, \psi)
+	\Delta T
+	\begin{bmatrix}
+		p \\
+		q \\
+		r
+	\end{bmatrix}
+\end{equation}
+
+where $R_b^e(\phi, \theta, \psi)$ is a rotation matix that rotates a vector in body frame to euler frame.
+
+\subsubsection{Measurement}
+\paragraph{Body Acceleration}
+Express body acceleration in terms of Euler angles, which is $z_{est} = h_{accel}(x')$ [see Eq. \eqref{eqn:predict_measurement_nonlinear}]
+
+\begin{equation}
+	\begin{bmatrix}
+		\dot{u} \\
+		\dot{v} \\
+		\dot{w} \\
+	\end{bmatrix} = 
+	R_{i}^{b}(\phi, \theta, \psi)
+	\begin{bmatrix}
+		0 \\
+		0 \\
+		g
+	\end{bmatrix} = g
+	\begin{bmatrix}
+		-s_\theta \\
+		s_\phi c_\theta \\
+		c_\phi c_\theta
+	\end{bmatrix}\label{eqn:accelerometer_measurement_equation}
+\end{equation}
+
+where $R_{i}^{b}(\phi, \theta, \psi)$ is a rotation matix that rotates a vector in body frame to inertial frame, and $g$ is gravitational acceleration
+
+Compute Jacobian matrix from Eq \eqref{eqn:accelerometer_measurement_equation}.
+
+\begin{equation}
+	H_{accel} = 
+	\begin{bmatrix}
+		\frac{\partial \dot{u}}{\partial \phi} && \frac{\partial \dot{u}}{\partial \theta} && \frac{\partial \dot{u}}{\partial \psi} \\
+		\frac{\partial \dot{v}}{\partial \phi} && \frac{\partial \dot{v}}{\partial \theta} && \frac{\partial \dot{v}}{\partial \psi} \\
+		\frac{\partial \dot{w}}{\partial \phi} && \frac{\partial \dot{w}}{\partial \theta} && \frac{\partial \dot{w}}{\partial \psi}
+	\end{bmatrix} = 
+	g \begin{bmatrix}
+		0 && -c_\theta && 0 \\
+		-c_\phi c_\theta && -s_\phi s_\theta && 0 \\
+		-s_\phi c_\theta && -c_\phi s_\theta && 0
+	\end{bmatrix}\label{eqn:H_accelerometer}
+\end{equation}
+
+\paragraph{Body magnetic forces}
+Express body magnetic forces in terms of Euler angles, which is $z_{est} = h_{mag}(x')$ [see Eq. \eqref{eqn:predict_measurement_nonlinear}]
+
+\begin{equation}
+	\begin{bmatrix}
+		m_x \\
+		m_y \\
+		m_z \\
+	\end{bmatrix} = 
+	R_{i}^{b}(\phi, \theta, \psi)
+	\begin{bmatrix}
+		1 \\
+		0 \\
+		0
+	\end{bmatrix} = 
+	\begin{bmatrix}
+		c_\theta c_\psi \\
+		-c_\phi s_\psi + s_\phi s_\theta c_\psi \\
+		s_\phi s_\psi + c_\phi s_\theta c_\psi \\
+	\end{bmatrix}\label{eqn:magnetometer_measurement_equation}
+\end{equation}
+
+Note: $m_x, m_y, m_z$ should be normalized, and $R_{i}^{b}(\phi, \theta, \psi)$ is a rotation matix that rotates a vector in body frame to inertial frame.
+
+Compute Jacobian matrix from Eq \eqref{eqn:magnetometer_measurement_equation}.
+
+\begin{equation}
+	H_{mag} = 
+	\begin{bmatrix}
+		0 && -s_\theta c_\psi && -c_\theta s_\psi \\
+		s_\phi s_\psi + c_\phi s_\theta c_\psi && s_\phi c_\theta c_\psi && -c_\phi c_\psi - s_\phi s_\theta s_\psi \\
+		c_\phi s_\psi - s_\phi s_\theta c_\psi && c_\phi c_\theta c_\psi && s_\phi c_\psi - c_\phi s_\theta s_\psi
+	\end{bmatrix}\label{eqn:H_accelerometer}
+\end{equation}
+
+\subsubsection{Frame rotation}
 
 \paragraph*{}
-Rotates acceleration vector from inertia to body frame.
+Rotates acceleration vector to body frame from inertia frame.
 
 \begin{equation}
 	\begin{bmatrix}
@@ -131,71 +259,6 @@ R_{b}^e =
 \end{bmatrix}
 \end{equation}
 
-\paragraph{Kinematic}
-
-\paragraph*{}
-Given an object's velocity, $v$, over time, we can compute its position, $p$, by
-
-\begin{equation}
-p = \int_0^t v dt
-\end{equation}
-
-In discrete-time, it is represented as
-
-\begin{equation}
-p' = p + v \Delta T
-\end{equation}
-
-where $\Delta T$ is the time step.
-
-
-\subparagraph*{Discrete-time model}
-By combining the equations above, the equations become:
-
-\begin{equation}
-	\begin{bmatrix}
-		\phi' \\
-		\theta' \\
-		\psi'
-	\end{bmatrix} = I_{3x3} 
-	\begin{bmatrix}
-		\phi \\
-		\theta \\
-		\psi
-	\end{bmatrix} + 
-	R_b^e(\phi, \theta, \psi)
-	\Delta T
-	\begin{bmatrix}
-		p \\
-		q \\
-		r
-	\end{bmatrix}
-\end{equation}
-
-\subparagraph{Accelerometer Measurement}
-Express measure in terms of filter's states
-
-\begin{equation}
-	\begin{bmatrix}
-		\dot{u} \\
-		\dot{v} \\
-		\dot{w} \\
-	\end{bmatrix} = 
-	R_{i}^{b}(\phi, \theta, \psi)
-	\begin{bmatrix}
-		0 \\
-		0 \\
-		g
-	\end{bmatrix} = g
-	\begin{bmatrix}
-		-s_\theta \\
-		s_\phi c_\theta \\
-		c_\phi c_\theta
-	\end{bmatrix}\label{eqn:accelerometer_measurement_equation}
-\end{equation}
-
-where $g$ is gravitational acceleration
-
 \subsection{Summary}
 
 We want to estimate Euler angles, $\phi$, $\theta$, and $\psi$ using Extended Kalman filter. $u$ is body angular rate, $p$, $q$, and $r$. $x$ is Euler angles, $\phi$, $\theta$, and $\psi$. $z$ is body acceleration.
@@ -225,7 +288,7 @@ We want to estimate Euler angles, $\phi$, $\theta$, and $\psi$ using Extended Ka
 where $\Delta T$ is sample time.
 
 \begin{equation}
-	P = F_j P F_j^T + Q\label{eqn:predict_covarance}
+	P = F_j P F_j^T + Q\label{eqn:predict_covarance_2}
 \end{equation}
 
 where $F_j = I_{3x3}$
@@ -235,7 +298,7 @@ where $F_j = I_{3x3}$
 
 
 \begin{equation}
-	z_{est} = H_j x'\label{eqn:predict_measurement}
+	z_{est} = H_j x'\label{eqn:predict_measurement_2}
 \end{equation}
 
 where measurement matrix, $H_j$, is a Jacobian matrix.
@@ -255,23 +318,23 @@ where measurement matrix, $H_j$, is a Jacobian matrix.
 \end{equation}
 
 \begin{equation}
-	y = z - z_{est}\label{eqn:measurement_difference}
+	y = z - z_{est}\label{eqn:measurement_difference_2}
 \end{equation}
 
 \begin{equation}
-	S = H_j P H_j^T + R\label{eqn:innovation_covariance}
+	S = H_j P H_j^T + R\label{eqn:innovation_covariance_2}
 \end{equation}
 
 \begin{equation}
-	K = P H_j^T S^{-1}\label{eqn:kalman_gain}
+	K = P H_j^T S^{-1}\label{eqn:kalman_gain_2}
 \end{equation}
 
 \begin{equation}
-	x = x' + Ky\label{eqn:updated_states}
+	x = x' + Ky\label{eqn:updated_states_2}
 \end{equation}
 
 \begin{equation}
-	P = (I-KH)P\label{eqn:updated_covariance}
+	P = (I-KH)P\label{eqn:updated_covariance_2}
 \end{equation}
 
 
