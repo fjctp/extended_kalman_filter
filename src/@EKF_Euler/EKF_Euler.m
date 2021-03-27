@@ -4,86 +4,111 @@ classdef EKF_Euler < matlab.System
     % This implements an extended kalman filter to estimate Euler angles
     % using augular rates, body acceleration, and magnetometer.
     %
-    % Usage:
-    %   obj = EKF_Euler(Q, R)
-    %   obj = EKF_Euler(Q, R, P0, [], x0, [])
-    %
 
     % Public, tunable properties
     properties
-        Q
-        R
-        P0
-        x0
+        Q  (3,3) double {mustBeFinite} = diag([1 1 1])
+        R  (3,3) double {mustBeFinite} = diag([1 1 1])
+        P0 (3,3) double {mustBeFinite} = diag([1 1 1])
+        x0 (3,1) double {mustBeFinite} = zeros(3, 1)
+        gyroBias   (3,1) double {mustBeFinite} = zeros(3, 1)
+        accelBias  (3,1) double {mustBeFinite} = zeros(3, 1)
+        dt = 1/100;
     end
-
+    
+    properties(Constant)
+        g = 9.81;
+    end
+    
     properties(DiscreteState)
         P
         x
     end
 
-    % Pre-computed constants
-    properties(Access = private)
+    properties(Dependent)
         nx
-        ny
+        nz
     end
     
-    methods(Access = public)
-        function obj = EKF_Euler(varargin)            
-            p = inputParser;
-            addRequired(p, 'Q', @(x) size(x, 1) == size(x, 2));
-            addRequired(p, 'R', @(x) size(x, 1) == size(x, 2))
-            addParameter(p, 'P0', []);
-            addParameter(p, 'x0', []);
-            parse(p, varargin{:});
-            
-            Q = p.Results.Q;
-            R = p.Results.R;
-            
-            nx = size(Q, 1);
-            ny = size(R, 1);
-            
-            P0 = p.Results.P0;
-            x0 = p.Results.x0;
-            
-            if isempty(P0)
-                P0 = zeros(nx, nx);
-            end
-            
-            if isempty(x0)
-                x0 = zeros(nx, 1);
-            end
-            
-            if size(P0, 1) ~= size(P0, 2)
-                error('P0 should be a square matrix\n');
-            end
-            
-            if size(P0, 1) ~= nx
-                error('P0 should be a %d by %d matrix\n', nx, nx);
-            end
-            
-            if length(x0) ~= nx
-                error('x0 should be a vecto with %d elemts\n', nx);
-            end
-            
-            obj.Q = Q;
-            obj.R = R;
-            obj.P0 = P0;
-            obj.x0 = x0;
-            obj.nx = nx;
-            obj.ny = ny;
+    methods
+        function obj = EKF_Euler(varargin)
+            setProperties(obj,nargin,varargin{:});
         end
+        
+        function val = get.nx(obj)
+            val = size(obj.Q, 1);
+        end
+        
+        function val = get.nz(obj)
+            val = size(obj.R, 1);
+        end
+
     end
     
-    % Min set of methods for system object
+    
     methods(Access = protected)
+        %% Basic functions
         resetImpl(obj);
         setupImpl(obj);
         [x, P] = stepImpl(obj, u, z);
+        
+        %% Check properties
+        function validatePropertiesImpl(obj)
+            % Validate related or interdependent property values
+            
+            if size(obj.Q, 1) ~= size(obj.Q, 2)
+                error('Q should be a square matrix');
+            end
+            
+            if size(obj.R, 1) ~= size(obj.R, 2)
+                error('R should be a square matrix');
+            end
+            
+            if size(obj.P, 1) ~= size(obj.P, 2)
+                error('P should be a square matrix');
+            end
+            
+            if size(obj.x0, 2) ~= 1
+                error('x0 should be a n by 1 vector');
+            end
+        end
+        
+        function [size,dataType,complexity] = getDiscreteStateSpecificationImpl(~,propertyName)
+            if strcmp(propertyName, 'P')
+                size = [3, 3];
+                dataType = "double";
+                complexity = false;
+            elseif strcmp(propertyName, 'x')
+                size = [3, 1];
+                dataType = "double";
+                complexity = false;
+            end
+        end
+        
+        function [f1, f2] = isOutputFixedSizeImpl(~)
+            f1 = true;
+            f2 = true;
+        end
+        
+        function [s1, s2] = getOutputSizeImpl(obj)
+            s1 = [obj.nx, 1];
+            s2 = [obj.nx, obj.nx];
+        end
+        
+        function [dt_1, dt_2] = getOutputDataTypeImpl(~)
+            dt_1 = "double";
+            dt_2 = "double";
+        end
+        
+        function [c1, c2] = isOutputComplexImpl(~)
+            c1 = false;
+            c2 = false;
+        end
     end
     
-    % EKF function
     methods(Access = private)
-        predict(obj, u, dt);
+        %% EKF function
+        predict(obj, u);
+        correct(obj, z);
     end
 end

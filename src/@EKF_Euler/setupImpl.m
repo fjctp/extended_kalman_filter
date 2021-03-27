@@ -1,5 +1,7 @@
 function setupImpl(obj)
+% Initialize / reset discrete-state properties
 
-reset(obj);
+obj.P = zeros(3, 3);
+obj.x = zeros(3, 1);
 
 end
