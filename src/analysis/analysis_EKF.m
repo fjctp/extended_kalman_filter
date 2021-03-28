@@ -3,7 +3,7 @@
 % see example: https://www.mathworks.com/help/control/ref/ss.kalman.html
 
 % define the model
-euler = deg2rad([30,0,0]);
+euler = deg2rad([0,0,0]);
 
 A = eye(3,3);
 B = dcm_b2e(euler);
@@ -17,7 +17,7 @@ C = C(1:2, 1:2);
 % define Q, R
 dt = 1/100;
 a = dt^2/2;
-pqr_dot_covar = [deg2rad(1e4)^2, deg2rad(1e4)^2, deg2rad(1e1)^2];
+pqr_dot_covar = [deg2rad(1e-4)^2, deg2rad(1e4)^2, deg2rad(1e1)^2];
 Q = diag([a*pqr_dot_covar(1)*a /4, a*pqr_dot_covar(2)*a/4, a*pqr_dot_covar(3)*a/4]);
 R = diag([0.0155^2, 0.0124^2, 0.0147^2]);
 
@@ -32,11 +32,15 @@ ny = size(C, 1);
 nu = size(B, 2);
 D = zeros(ny, nu);
 sys = ss(A, B, C, D, Ts);
+sys.InputName = ["p", "q", "p_noise", "q_noise"];
+sys.OutputName = ["ax", "ay"];
+sys.InputGroup.input = [1 2];
+sys.InputGroup.noise = [3 4];
 [kalmf, L, P] = kalman(sys,Q,R);
 
-figure; pzmap(kalmf); grid on;
-figure; bodemag(kalmf); grid on;
-figure; step(kalmf); grid on;
+% figure; pzmap(kalmf); grid on;
+% figure; bodemag(kalmf); grid on;
+% figure; step(kalmf); grid on;
 
 function mat = H_accel(euler)
 % Jacobian Matrix: H
