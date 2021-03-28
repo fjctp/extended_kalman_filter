@@ -2,7 +2,7 @@ function addMyPath(varargin)
 
 ip = inputParser;
 addOptional(ip, 'root', '.', @isstring);
-addOptional(ip, 'skip_folder', ["slprj", "cache"], @(x) isvector(x) && isstring(x));
+addOptional(ip, 'skip_folder', ["slprj", "archive"], @(x) isvector(x) && isstring(x));
 parse(ip, varargin{:});
 
 root = ip.Results.root;
